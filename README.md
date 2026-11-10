@@ -1,5 +1,5 @@
 # Frangins Fighters
 
-Beat em up navigateur (PC, manette, mobile). Site statique : index.html a la racine, aucun build.
+Beat em up navigateur (PC, manette, mobile). Site statique dans public/, servi par Cloudflare Workers (assets), config dans wrangler.jsonc. Aucun build.
 
-Cloudflare Pages : framework preset None, build command vide, output directory /.
+Workers Builds : build command vide, deploy command `npx wrangler deploy`.

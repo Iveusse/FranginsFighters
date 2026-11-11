@@ -88,8 +88,9 @@ body{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-selec
   <div id="zoneL"></div>
   <div id="sysb"><button id="pauseB" aria-label="Pause">II</button><button id="fsB" aria-label="Plein ecran">[ ]</button></div>
   <div id="menu">
-   <div id="ver">v12</div>
+   <div id="ver">v13</div>
    <div><h1>FRANGINS FIGHTERS</h1><div class="sub">Léonard et Auguste contre le Roi de la Map</div></div>
+   <div class="row"><button class="go" id="contBtn" hidden>CONTINUER</button></div>
    <div class="row">
     <button class="go" data-mode="2p" autofocus>2 JOUEURS</button>
     <button class="go" data-mode="1leo">SOLO LEONARD</button>
@@ -513,9 +514,10 @@ function startLevel(i,first){
  G.banner={txt:'NIVEAU '+(i+1)+' : '+LEVELS[i].name,t:190};
  if(!first)G.players.forEach(p=>{p.dead=false;p.gone=false;p.respT=0;p.st='idle';p.stT=0;p.atk=null;p.z=0;p.vz=0;p.vx=0;p.x=40+p.idx*24;p.y=146+p.idx*12;p.inv=150;p.lives=Math.max(p.lives,1);p.hp=p.hp<=0?Math.round(p.maxhp*.5):Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.5))});
 }
-function toTitle(){G={st:'title',mode:'2p',t:0,camX:0,lv:0,proj:[],fx:[],players:[],enemies:[],walls:[],chests:[],items:[],shake:0,inset:0,banner:null};$('menu').hidden=false;$('end').hidden=true}
+function toTitle(){G={st:'title',mode:'2p',t:0,camX:0,lv:0,proj:[],fx:[],players:[],enemies:[],walls:[],chests:[],items:[],shake:0,inset:0,banner:null};$('menu').hidden=false;$('end').hidden=true;if(typeof refreshCont==='function')refreshCont()}
 function endGame(win){
- G.st='end';G.win=win;
+ G.st='end';G.win=win;if(win)clearSave();
+ $('again').textContent=(!win&&loadSave())?'REPRENDRE AU DERNIER POINT':'REJOUER';
  $('endT').textContent=win?'VICTOIRE !':'GAME OVER';
  $('endP').textContent=win?'Le Roi de la Map est tombé. Ennemis battus : '+G.kills:'Les frangins ont perdu cette fois. Ennemis battus : '+G.kills;
  $('end').hidden=false;$('again').focus();
@@ -573,7 +575,16 @@ document.querySelectorAll('#btns button').forEach(b=>{const k=b.dataset.k;
  if($('fsB'))$('fsB').addEventListener('click',()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{const p=(fsEl.requestFullscreen||fsEl.webkitRequestFullscreen).call(fsEl);if(p&&p.then)p.then(()=>{try{screen.orientation.lock('landscape')}catch(_){}}).catch(()=>{})}}catch(_){}});
  if($('pauseB'))$('pauseB').addEventListener('click',()=>{if(G.st==='play')paused=!paused});
 })();
-document.querySelectorAll('#menu button').forEach(b=>b.addEventListener('click',()=>reset(b.dataset.mode)));
+document.querySelectorAll('#menu button[data-mode]').forEach(b=>b.addEventListener('click',()=>reset(b.dataset.mode)));
+const SAVE_KEY='frangins_save_v1';
+function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return s&&s.v===1&&s.lv>=0&&s.lv<LEVELS.length?s:null}catch(_){return null}}
+function writeSave(){if(!G||G.st!=='play'||!G.players)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:1,mode:G.mode,lv:G.lv,wave:G.wave,players:G.players.map(p=>({lives:p.lives,charge:Math.round(p.charge||0)})),t:Date.now()}));if(G.players[0])fx({k:'txt',x:G.players[0].x,y:G.players[0].y-62,txt:'SAUVEGARDE',life:50,col:'#9bf6a0'})}catch(_){}}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(_){}}
+function refreshCont(){const s=loadSave(),b=$('contBtn');if(!b)return;b.hidden=!s;if(s)b.textContent='CONTINUER : NIVEAU '+(s.lv+1)}
+function resumeGame(){const s=loadSave();if(!s)return false;reset(s.mode,s.lv);const WV=LV().waves;G.wave=Math.max(0,Math.min(s.wave|0,WV.length-1));G.camX=G.wave>0?WV[G.wave-1].x:0;
+ G.players.forEach((p,i)=>{const d=(s.players&&s.players[i])||{};p.hp=p.maxhp;p.lives=Math.max(2,d.lives||0);p.charge=Math.min(CMAX,d.charge||0);p.x=G.camX+40+i*24;p.inv=150});
+ G.banner={txt:'ON REPREND ! NIVEAU '+(G.lv+1),t:160};return true}
+$('contBtn').addEventListener('click',resumeGame);
 (function lvlMenu(){
  let mode='2p',taps=0,tt=0;const row=$('lvRow');
  LEVELS.forEach((L,i)=>{const b=document.createElement('button');b.className='go';b.textContent=(i+1)+' '+L.name.replace('LE ','').replace('LES ','');b.addEventListener('click',()=>{$('lvl').hidden=true;reset(mode,i)});row.appendChild(b)});
@@ -584,7 +595,7 @@ document.querySelectorAll('#menu button').forEach(b=>b.addEventListener('click',
  h1.addEventListener('click',()=>{const n=performance.now();taps=(n-tt<1500)?taps+1:1;tt=n;if(taps>=5){taps=0;open()}});
  addEventListener('keydown',e=>{if(e.code==='KeyL'&&G.st==='title'&&$('lvl').hidden)open()});
 })();
-$('again').addEventListener('click',()=>reset(G.mode,G.win?0:G.lv));
+$('again').addEventListener('click',()=>{if(!G.win&&resumeGame())return;reset(G.mode,G.win?0:G.lv)});
 $('toMenu').addEventListener('click',toTitle);
 $('mute').addEventListener('click',()=>{initAudio();setMute(!muted)});
 
@@ -876,10 +887,10 @@ function updWorld(){
  if(G.inset>0&&bossAlive&&G.t%24===0)for(const p of G.players){if(p.dead||p.gone||p.st==='down')continue;const sx=p.x-G.camX;if(sx<G.inset||sx>W-G.inset)hurtPlayer(p,2,0,false,true)}
  // wave clear
  if(G.locked&&!G.spawnQ.some(s=>s.type!=='chest')&&!G.enemies.some(e=>!e.dying)&&!(WV[G.wave].boss&&!G.boss)){
-  const was=WV[G.wave];G.locked=false;G.wave++;
+  const was=WV[G.wave];G.locked=false;G.wave++;if(!was.boss)writeSave();
   if(!was.boss){G.goFrom=G.camX;G.goT=1}
  }
- if(G.winT){G.winT++;const last=G.lv>=LEVELS.length-1;if(G.winT===2)G.banner={txt:last?'VICTOIRE !':'NIVEAU TERMINE !',t:200};if(G.winT>200){if(last)endGame(true);else startLevel(G.lv+1)}}
+ if(G.winT){G.winT++;const last=G.lv>=LEVELS.length-1;if(G.winT===2)G.banner={txt:last?'VICTOIRE !':'NIVEAU TERMINE !',t:200};if(G.winT>200){if(last)endGame(true);else{startLevel(G.lv+1);writeSave()}}}
  if(G.players.every(p=>p.dead)){G.overT++;if(G.overT>90)endGame(false)}
  if(G.goT&&G.camX>G.goFrom+70)G.goT=0;
  if(G.goT)G.goT++;
